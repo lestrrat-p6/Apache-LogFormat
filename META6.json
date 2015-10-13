@@ -1,6 +1,6 @@
 {
   "name" : "Apache::LogFormat::Compiler",
-  "source-url" : "",
+  "source-url" : "git://github.com/lestrrat/p6-Apache-LogFormat-Compiler.git",
   "perl" : "v6",
   "build-depends" : [ ],
   "provides" : {

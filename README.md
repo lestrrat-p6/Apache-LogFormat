@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/lestrrat/p6-Apache-LogFormat-Compiler.svg?branch=master)](https://travis-ci.org/lestrrat/p6-Apache-LogFormat-Compiler)
+
 NAME
 ====
 

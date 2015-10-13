@@ -26,24 +26,34 @@ method log-line(Apache::LogFormat::Logger:D: %env) {
     }
 
     # TODO: provide proper parameters to callback
-    $logger.($.callback.(%env, Nil, Nil, Nil, Nil));
+    my $time = DateTime.now();
+    $logger.($.callback.(%env, Nil, Nil, Nil, $time));
 }
 
 }
 
 class Apache::LogFormat::Compiler {
 
-has %.char_handlers = (
+has %.char-handlers = (
     '%' => q!'%'!,
     h => q!(%env<REMOTE_ADDR> || '-')!,
     l => q!'-'!,
     u => q!(%env<REMOTE_USER> || '-')!,
-    t => q!'[' ~ $t ~ ']'!,
+    t => q!'[' ~ format-datetime($time) ~ ']'!,
     r => q!safe-value(%env<REQUEST_METHOD>) ~ " " ~ safe-value(%env<REQUEST_URI> ~ " " ~ %env<SERVER_PROTOCOL>!,
     s => q!!,
 );
 
-has %.block_handlers;
+has %.block-handlers;
+
+# [10/Oct/2000:13:55:36 -0700]
+my sub format-datetime(DateTime $dt) {
+    state @abbr = <Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec>;
+
+    return sprintf("%02d/%s/%04d:%02d:%02d:%02d %s%02d%02d",
+        $dt.day-of-month, @abbr[$dt.month-1], $dt.year,
+        $dt.hour, $dt.minute, $dt.second, ($dt.offset>0??'+'!!'-'), $dt.offset/3600, $dt.offset%3600);
+}
 
 our sub safe-value($s) {
     if !defined($s) {
@@ -65,7 +75,8 @@ our sub string-value($s) {
     return $x;
 }
 
-method run_block_handler($block, $type, $extra) {
+method run-block-handler($block, $type, $extra) {
+warn("run-block-handler $block, $type, $extra");
     state %psgi-reserved = (
         CONTENT_LENGTH => 1,
         CONTENT_TYPE => 1,
@@ -88,10 +99,12 @@ method run_block_handler($block, $type, $extra) {
     return q|! ~ | ~ $cb ~ q| ~ q!|;
 }
 
-method run_char_handler($char, $extra) {
-    my $cb = %.char_handlers<$char>;
+method run-char-handler(Str $char, $extra) {
+warn("run-char-handler $char, $extra");
+warn($.char-handlers.perl);
+    my $cb = %.char-handlers{$char};
     if !$cb {
-        die "$char undefined";
+        die "char handler for '$char' undefined";
     }
     return q|! ~ | ~ $cb ~ q|
       ~ q!|;
@@ -103,13 +116,15 @@ method compile (Apache::LogFormat::Compiler:D: $pat) {
     $fmt ~~ s:g/'!'/'\''!'/;
     $fmt ~~ s:g!
         [
-             \%\{(.+?)\}(<[ a..z A..Z ]>)|
-             \%<[\<\>]>?(<[ a..z A..Z \%]>)
+             \%\{ $<name>=.+? \} $<type>=<[ a..z A..Z ]>|
+             \%<[\<\>]>? $<char>=<[ a..z A..Z \%]>
         ]
-    !{ $0 ?? self.run_block_handler($0, $1, Nil) !! self.run_char_handler($2, $3) }!;
+    !{ $<name> ?? self.run-block-handler($<name>, $<type>, Nil) !! self.run-char-handler($<char>.Str, Nil) }!;
 
 
-    $fmt = q~sub (%env, $res, $length, $reqtime, $time) { q!~ ~ $fmt ~ q~! }~;
+    $fmt = q~sub (%env, $res, $length, $reqtime, DateTime $time = DateTime.now) {
+        q!~ ~ $fmt ~ q~!;
+    }~;
     my $code = EVAL($fmt);
     return Apache::LogFormat::Logger.new($code)
 }
