@@ -1,0 +1,16 @@
+{
+  "name" : "Apache::LogFormat::Compiler",
+  "source-url" : "",
+  "perl" : "v6",
+  "build-depends" : [ ],
+  "provides" : {
+    "Apache::LogFormat::Compiler" : "lib/Apache/LogFormat/Compiler.pm6"
+  },
+  "depends" : [ ],
+  "description" : "blah blah blah",
+  "test-depends" : [ ],
+  "version" : "*",
+  "authors" : [
+    "Daisuke Maki"
+  ]
+}
