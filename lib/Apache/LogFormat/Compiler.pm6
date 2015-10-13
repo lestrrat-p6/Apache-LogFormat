@@ -2,21 +2,26 @@ use v6;
 
 class Apache::LogFormat::Logger{
 
-has Callable $.callback;
-has Callable $.logger;
+has &!callback;
+has &!logger;
 
-method new-with-logger($logger, $callback) {
-    return self.bless(:$logger, :$callback);
+method new-with-logger(&callback, $logger) {
+    if $logger.defined {
+        return self.bless(:&callback, :$logger);
+    }
+    return self.bless(:&callback);
 }
 
-method new($callback) {
-    return self.new-with-logger(Nil, $callback);
+method new(&callback) {
+    return self.new-with-logger(&callback, Nil);
 }
 
-method log-line(Apache::LogFormat::Logger:D: %env) {
-    my $logger = $.logger;
-    if !$logger {
-        $logger = sub ($m) {
+submethod BUILD(:&!callback, :&!logger) { }
+
+method log-line(Apache::LogFormat::Logger:D: %env, @res) {
+    my &logger = &!logger;
+    if !&logger {
+        &logger = sub ($m) {
             %env<p6sgi.error>.print($m)
         };
     }
@@ -27,7 +32,7 @@ method log-line(Apache::LogFormat::Logger:D: %env) {
 
     # TODO: provide proper parameters to callback
     my $time = DateTime.now();
-    $logger.($.callback.(%env, Nil, Nil, Nil, $time));
+    &logger(&!callback(%env, @res, Nil, Nil, $time));
 }
 
 }
@@ -36,12 +41,17 @@ class Apache::LogFormat::Compiler {
 
 has %.char-handlers = (
     '%' => q!'%'!,
+    b => q|(defined($length)??$length!!'-')|,
     h => q!(%env<REMOTE_ADDR> || '-')!,
     l => q!'-'!,
     u => q!(%env<REMOTE_USER> || '-')!,
     t => q!'[' ~ format-datetime($time) ~ ']'!,
     r => q!safe-value(%env<REQUEST_METHOD>) ~ " " ~ safe-value(%env<REQUEST_URI>) ~ " " ~ %env<SERVER_PROTOCOL>!,
-    s => q!!,
+    s => q!@res[0]!,
+    m => q!safe-value(%env<REQUEST_METHOD>)!,
+    U => q!safe-value(%env<PATH_INFO>)!,
+    q => q|(%env<QUERY_STRING> ?? '?' ~ safe-value(%env<QUERY_STRING>) !! '')|,
+    H => q!%env<SERVER_PROTOCOL>!,
 );
 
 has %.block-handlers;
@@ -107,7 +117,7 @@ method run-char-handler(Str $char, $extra) {
       ~ q!|;
 }
 
-method compile (Apache::LogFormat::Compiler:D: $pat) {
+method compile (Apache::LogFormat::Compiler:D: $pat, :$logger) {
     my $fmt = $pat; # copy so we can safely modify
 
     $fmt ~~ s:g/'!'/'\''!'/;
@@ -119,14 +129,31 @@ method compile (Apache::LogFormat::Compiler:D: $pat) {
     !{ $<name> ?? self.run-block-handler($<name>, $<type>, Nil) !! self.run-char-handler($<char>.Str, Nil) }!;
 
 
-    $fmt = q~sub (%env, $res, $length, $reqtime, DateTime $time = DateTime.now) {
+    $fmt = q~sub (%env, @res, $length, $reqtime, DateTime $time = DateTime.now) {
         q!~ ~ $fmt ~ q~!;
     }~;
     my $code = EVAL($fmt);
-    return Apache::LogFormat::Logger.new($code)
+    return Apache::LogFormat::Logger.new-with-logger($code, $logger)
 }
 
 }
+
+class Apache::LogFormat {
+
+method common(Apache::LogFormat:U: :$logger) {
+
+    my $p = Apache::LogFormat::Compiler.new();
+    return $p.compile('%h %l %u %t "%r" %>s %b');
+}
+
+method combined(Apache::LogFormat:U: :$logger) {
+    my $p = Apache::LogFormat::Compiler.new();
+    return $p.compile('%h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-agent}i"');
+}
+
+}
+
+
 
 
 =begin pod
