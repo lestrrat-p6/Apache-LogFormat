@@ -40,7 +40,7 @@ has %.char-handlers = (
     l => q!'-'!,
     u => q!(%env<REMOTE_USER> || '-')!,
     t => q!'[' ~ format-datetime($time) ~ ']'!,
-    r => q!safe-value(%env<REQUEST_METHOD>) ~ " " ~ safe-value(%env<REQUEST_URI> ~ " " ~ %env<SERVER_PROTOCOL>!,
+    r => q!safe-value(%env<REQUEST_METHOD>) ~ " " ~ safe-value(%env<REQUEST_URI>) ~ " " ~ %env<SERVER_PROTOCOL>!,
     s => q!!,
 );
 
@@ -76,7 +76,6 @@ our sub string-value($s) {
 }
 
 method run-block-handler($block, $type, $extra) {
-warn("run-block-handler $block, $type, $extra");
     state %psgi-reserved = (
         CONTENT_LENGTH => 1,
         CONTENT_TYPE => 1,
@@ -100,8 +99,6 @@ warn("run-block-handler $block, $type, $extra");
 }
 
 method run-char-handler(Str $char, $extra) {
-warn("run-char-handler $char, $extra");
-warn($.char-handlers.perl);
     my $cb = %.char-handlers{$char};
     if !$cb {
         die "char handler for '$char' undefined";
