@@ -1,26 +1,7 @@
 use v6;
 
-class Apache::LogFormat::Formatter {
-
-has &!callback;
-
-method new(&callback) {
-    return self.bless(:&callback);
-}
-
-submethod BUILD(:&!callback) { }
-
-# %env is the PSGI environment hash
-# @res is a 3 item list, in PSGI style
-method format(Apache::LogFormat::Formatter:D: %env, @res) {
-    # TODO: provide proper parameters to callback
-    my $time = DateTime.now();
-    return &!callback(%env, @res, Nil, Nil, $time) ~ "\n";
-}
-
-}
-
-class Apache::LogFormat::Compiler {
+unit class Apache::LogFormat::Compiler;
+use Apache::LogFormat::Formatter;
 
 use DateTime::Format;
 
@@ -158,40 +139,14 @@ method compile(Apache::LogFormat::Compiler:D: $pat, %extra-blocks?, %extra-chars
     return Apache::LogFormat::Formatter.new($code);
 }
 
-}
-
-class Apache::LogFormat {
-
-method common(Apache::LogFormat:U: :$logger) {
-    my $p = Apache::LogFormat::Compiler.new();
-    return $p.compile('%h %l %u %t "%r" %>s %b');
-}
-
-method combined(Apache::LogFormat:U: :$logger) {
-    my $p = Apache::LogFormat::Compiler.new();
-    return $p.compile('%h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-agent}i"');
-}
-
-}
-
-
-
-
 =begin pod
 
 =head1 NAME
 
-Apache::LogFormat::Compiler - blah blah blah
+Apache::LogFormat::Compiler - Compiles Log Format Into Apache::LogFormat::Formatter
 
 =head1 SYNOPSIS
 
-  # Use a predefined log format to generate string for logging
-  use Apache::LogFormat;
-  my $fmt = Apache::LogFormat.combined;
-  my $line = $fmt.format(%env, @res, $length, $reqtime, $time);
-  $*ERR.print($line);
-
-  # Compile your own log formatter
   use Apache::LogFormat::Compiler;
   my $c = Apache::LogFormat::Compiler.new;
   my $fmt = $c.compile(' ... pattern ... ');
@@ -202,6 +157,17 @@ Apache::LogFormat::Compiler - blah blah blah
 
 Apache::LogFormat::Compiler compiles an Apache-style log format string into
 efficient perl6 code. It was originally written for perl5 by kazeburo.
+
+=head1 METHODS
+
+=head2 new(): $compiler:Apache::LogFormat::Compiler
+
+Creates a new parser. The parser is stateless, so you can reuse it as many
+times to compile log patterns.
+
+=head2 compile($pat:String, %extra-block-handlers:Hash(Str,Callable), %extra-char-handlers:Hash(Str,Callable)) $fmt:Apache::LogFormat::Formatter
+
+Compiles the pattern into an executable formatter object.
 
 =head1 AUTHOR
 

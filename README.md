@@ -3,7 +3,7 @@
 NAME
 ====
 
-Apache::LogFormat::Compiler - blah blah blah
+Apache::LogFormat - Provide Apache-Style Log Generators
 
 SYNOPSIS
 ========
@@ -24,7 +24,24 @@ SYNOPSIS
 DESCRIPTION
 ===========
 
-Apache::LogFormat::Compiler is ...
+Apache::LogFormat provides Apache-style log generators.
+
+PRE DEFINED FORMATTERS
+======================
+
+common(): $fmt:Apache::LogFormat::Formatter
+-------------------------------------------
+
+Creates a new Apache::LogFormat::Formatter that generates log lines in the following format:
+
+    %h %l %u %t "%r" %>s %b
+
+combined(): $fmt:Apache::LogFormat::Formatter
+---------------------------------------------
+
+Creates a new Apache::LogFormat::Formatter that generates log lines in the following format:
+
+    %h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-agent}i"
 
 AUTHOR
 ======

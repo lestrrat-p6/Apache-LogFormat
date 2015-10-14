@@ -1,6 +1,6 @@
 use v6;
 use Test;
-use Apache::LogFormat::Compiler;
+use Apache::LogFormat;
 
 my $fmt = Apache::LogFormat.combined();
 if ! isa-ok($fmt, "Apache::LogFormat::Formatter") {
