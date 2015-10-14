@@ -4,7 +4,6 @@ use Apache::LogFormat::Compiler;
 
 my $f = Apache::LogFormat::Compiler.new();
 
-note "compiling...";
 my $fmt = $f.compile(
     '%z %{HTTP_X_FORWARDED_FOR|REMOTE_ADDR}Z',
     {'Z' => sub ($block, %env, @res, $length, $reqtime) {
