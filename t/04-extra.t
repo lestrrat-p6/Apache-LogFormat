@@ -35,7 +35,10 @@ my @res = (
     ["X-Res-Test" => "bar"],
     ["OK"],
 );
-my $got = $fmt.format(%env, @res);
+my $t0 = DateTime.now.Instant;
+sleep 1;
+my $now = DateTime.now;
+my $got = $fmt.format(%env, @res, 10, $t0 - $now.Instant, $now);
 
 if ! ok($got ~~ m!'foo HTTP_X_FORWARDED_FOR|REMOTE_ADDR'!, "line is as expected") {
     note $got;

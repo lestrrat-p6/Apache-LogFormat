@@ -19,7 +19,10 @@ my %env = (
     SERVER_PROTOCOL => "HTTP/1.0",
 );
 my @res = (200, ["Content-Type" => "text/plain"], ["Hello, World".encode('ascii')]);
-my $got = $fmt.format(%env, @res);
+my $t0 = DateTime.now.Instant;
+sleep 1;
+my $now = DateTime.now;
+my $got = $fmt.format(%env, @res, 10, $t0 - $now.Instant, $now);
 
 if ! ok($got ~~ m!'GET /foo/bar/baz HTTP/1.0'!, "Checking %r") {
     note $got;

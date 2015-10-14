@@ -17,9 +17,12 @@ my %env = (
     SERVER_PROTOCOL => "HTTP/1.0",
 );
 my @res = (200, ["Content-Type" => "text/plain"], ["Hello, World".encode('ascii')]);
-my $got = $fmt.format(%env, @res);
+my $t0 = DateTime.now.Instant;
+sleep 1;
+my $now = DateTime.now;
+my $got = $fmt.format(%env, @res, 10, $t0 - $now.Instant, $now);
 
-if !ok $got ~~ /^ "192.168.1.1 - foo [" \d**2\/<[A..Z]><[a..z]>**2\/\d**4\:\d**2\:\d**2\:\d**2 " " <[\+\-]>\d**4 '] "GET /foo/bar/baz HTTP/1.0" 200 - "http://doc.perl6.org" "Firefox foo blah\x0a"' /, "line matches" {
+if !ok $got ~~ /^ "192.168.1.1 - foo [" \d**2\/<[A..Z]><[a..z]>**2\/\d**4\:\d**2\:\d**2\:\d**2 " " <[\+\-]>\d**4 '] "GET /foo/bar/baz HTTP/1.0" 200 ' \d+ ' "http://doc.perl6.org" "Firefox foo blah\x0a"' /, "line matches" {
     note $got;
 }
 done-testing;

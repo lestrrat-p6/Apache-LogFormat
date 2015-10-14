@@ -24,7 +24,10 @@ my @res = (
     ["Content-Type" => "text/plain", "Content-Length" => 2],
     ["OK"],
 );
-my $got = $fmt.format(%env, @res);
+my $t0 = DateTime.now.Instant;
+sleep 1;
+my $now = DateTime.now;
+my $got = $fmt.format(%env, @res, 10, $t0 - $now.Instant, $now);
 
 if ! ok($got ~~ m!'7 application/x-www-form-urlencoded text/plain 2'!, "line is as expected") {
     note $got;

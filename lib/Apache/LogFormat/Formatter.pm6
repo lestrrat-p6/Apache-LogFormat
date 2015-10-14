@@ -12,10 +12,8 @@ submethod BUILD(:&!callback) { }
 
 # %env is the PSGI environment hash
 # @res is a 3 item list, in PSGI style
-method format(Apache::LogFormat::Formatter:D: %env, @res) {
-    # TODO: provide proper parameters to callback
-    my $time = DateTime.now();
-    return &!callback(%env, @res, Nil, Nil, $time) ~ "\n";
+method format(Apache::LogFormat::Formatter:D: %env, @res, $length, $reqtime, $time) {
+    return &!callback(%env, @res, $length, $reqtime, $time) ~ "\n";
 }
 
 
