@@ -8,7 +8,18 @@ Apache::LogFormat::Compiler - blah blah blah
 SYNOPSIS
 ========
 
+    # Use a predefined log format to generate string for logging
+    use Apache::LogFormat;
+    my $fmt = Apache::LogFormat.combined;
+    my $line = $fmt.format(%env, @res, $length, $reqtime, $time);
+    $*ERR.print($line);
+
+    # Compile your own log formatter
     use Apache::LogFormat::Compiler;
+    my $c = Apache::LogFormat::Compiler.new;
+    my $fmt = $c.compile(' ... pattern ... ');
+    my $line = $fmt.format(%env, @res, $length, $reqtime, $time);
+    $*ERR.print($line);
 
 DESCRIPTION
 ===========

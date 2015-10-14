@@ -1,7 +1,6 @@
 use v6;
 use Test;
 use Apache::LogFormat::Compiler;
-use IO::Blob;
 
 my $f = Apache::LogFormat::Compiler.new();
 my $fmt = $f.compile('%r %t "%{User-agent}i"');
@@ -9,22 +8,18 @@ if ! ok($fmt, "f is valid") {
     return
 }
 
-if ! isa-ok($fmt, "Apache::LogFormat::Logger") {
+if ! isa-ok($fmt, "Apache::LogFormat::Formatter") {
     return
 }
 
-my $io = IO::Blob.new;
 my %env = (
     HTTP_USER_AGENT => "Firefox foo blah\n",
     REQUEST_METHOD => "GET",
     REQUEST_URI => "/foo/bar/baz",
     SERVER_PROTOCOL => "HTTP/1.0",
-    'p6sgi.error' => $io,
 );
 my @res = (200, ["Content-Type" => "text/plain"], ["Hello, World".encode('ascii')]);
-$fmt.log-line(%env, @res);
-$io.seek(0, 0);
-my $got = $io.slurp-rest(:enc<ascii>);
+my $got = $fmt.format(%env, @res);
 
 if ! ok($got ~~ m!'GET /foo/bar/baz HTTP/1.0'!, "Checking %r") {
     note $got;
