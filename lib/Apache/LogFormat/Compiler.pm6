@@ -1,32 +1,141 @@
 use v6;
 
-unit class Apache::LogFormat::Compiler;
+grammar Apache::LogFormat::Grammar {
+    token TOP {
+        ^<expr>+$
+    }
+
+    token expr {
+        [
+            '%' [ <block-section> | <char-name> ]
+        ] | <anyother>
+    }
+
+    token anyother {
+        <-[\%]>+
+    }
+    token identifier { <[a..z A..Z]>+ }
+
+    token char-name {
+        <[\<\>]>? <identifier>
+    }
+
+    token block-section {
+        '{' <block-key> '}' <block-type>
+    }
+
+    token block-key {
+        <-[ \} ]>+
+    }
+
+    token block-type {
+        <[a..z A..Z]>
+    }
+}
+
+class Apache::LogFormat::GrammarActions {
+    has %.extra-block-handlers;
+    has %.extra-char-handlers;
+    has %.char-handlers = (
+        '%' => q!'%'!,
+        b => q|(defined($length)??$length!!'-')|,
+        D => q|($reqtime.defined ?? $reqtime.Int !! '-'|,
+        h => q!(%env<REMOTE_ADDR> || '-')!,
+        H => q!%env<SERVER_PROTOCOL>!,
+        l => q!'-'!,
+        m => q!safe-value(%env<REQUEST_METHOD>)!,
+        p => q!%env<SERVER_PORT>!,
+        P => q!$$!,
+        q => q|(%env<QUERY_STRING> ?? '?' ~ safe-value(%env<QUERY_STRING>) !! '')|,
+        r => q!safe-value(%env<REQUEST_METHOD>) ~ " " ~ safe-value(%env<REQUEST_URI>) ~ " " ~ %env<SERVER_PROTOCOL>!,
+        s => q!@res[0]!,
+        t => q!'[' ~ format-datetime($time) ~ ']'!,
+        T => q|($reqtime.defined ?? $reqtime.Int.truncate * 1_000_000 !! '-')|,
+        u => q!(%env<REMOTE_USER> || '-')!,
+        U => q!safe-value(%env<PATH_INFO>)!,
+        v => q!(%env<SERVER_NAME> || '-')!,
+        V => q!(%env<HTTP_HOST> || %env<SERVER_NAME> || '-')!,
+    );
+
+    method TOP($/) {
+        my $code = q~sub (%env, @res, $length, $reqtime, DateTime $time = DateTime.now) {
+            q!~ ~  $<expr>».made.join("") ~ q~!;
+        }~;
+        $/.make: $code;
+    }
+
+    method expr($/) {
+        my $made;
+        if $<block-section> {
+            $made = $<block-section>.made;
+        } elsif $<char-name> {
+            $made = $<char-name>.made;
+        } elsif $<anyother> {
+            $made = $<anyother>.made;
+        } else {
+            die "Match failed";
+        }
+        $/.make: $made;
+    }
+
+    method anyother($/) {
+        $/.make: $/.Str
+    }
+
+    method char-name($/) {
+        my $hdl;
+        my $char = $<identifier>.Str;
+        if %.char-handlers{$char}:exists {
+            $hdl = %.char-handlers{$char};
+        } elsif %.extra-char-handlers{$char}:exists {
+            $hdl = q!(%extra-chars{'! ~ $char ~ q!'}(%env, @res))!;
+        }
+
+        if !$hdl {
+            die "char handler for '$char' undefined";
+        }
+        my $fmt =  q|! ~ | ~ $hdl ~ q|
+            ~ q!|;
+        $/.make: $fmt;
+    }
+
+    method block-section($/) {
+        state %psgi-reserved = (
+            CONTENT_LENGTH => 1,
+            CONTENT_TYPE => 1,
+        );
+        my $cb;
+        given $<block-type>.Str {
+        when 'i' {
+            my $hdr-name = $<block-key>.Str.uc.subst(/\-/, "_");
+            if !%psgi-reserved{$hdr-name} {
+                $hdr-name = "HTTP_" ~ $hdr-name;
+            }
+            $cb = q!string-value(%env<! ~ $hdr-name ~ q!>)!;
+        }
+        when 'o' {
+            $cb = q!string-value(get-header(@res[1], '! ~ $<block-key>.Str ~ q!'))!;
+        }
+        when 't' {
+            $cb = q!"[" ~ strftime('! ~ $<block-key>.Str ~ q!', $time) ~ "]"!;
+        }
+        when %.extra-block-handlers{$_}:exists {
+            $cb = q!string-value(%extra-blocks{'! ~ $<block-type>.Str ~ q!'}('! ~ $<block-key>.Str ~ q!', %env, @res, $length, $reqtime))!;
+        }
+        default {
+            die '%{' ~ $<block-key>.Str ~ '}' ~ $<block-type>.Str ~ ' not supported';
+        }
+        }
+
+        $/.make: q|! ~ | ~ $cb ~ q| ~ q!|;
+    }
+}
+
+class Apache::LogFormat::Compiler {
+
 use Apache::LogFormat::Formatter;
 
 use DateTime::Format;
-
-has %.char-handlers = (
-    '%' => q!'%'!,
-    b => q|(defined($length)??$length!!'-')|,
-    D => q|($reqtime.defined ?? $reqtime.Int !! '-'|,
-    h => q!(%env<REMOTE_ADDR> || '-')!,
-    H => q!%env<SERVER_PROTOCOL>!,
-    l => q!'-'!,
-    m => q!safe-value(%env<REQUEST_METHOD>)!,
-    p => q!%env<SERVER_PORT>!,
-    P => q!$$!,
-    q => q|(%env<QUERY_STRING> ?? '?' ~ safe-value(%env<QUERY_STRING>) !! '')|,
-    r => q!safe-value(%env<REQUEST_METHOD>) ~ " " ~ safe-value(%env<REQUEST_URI>) ~ " " ~ %env<SERVER_PROTOCOL>!,
-    s => q!@res[0]!,
-    t => q!'[' ~ format-datetime($time) ~ ']'!,
-    T => q|($reqtime.defined ?? $reqtime.Int.truncate * 1_000_000 !! '-'|,
-    u => q!(%env<REMOTE_USER> || '-')!,
-    U => q!safe-value(%env<PATH_INFO>)!,
-    v => q!(%env<SERVER_NAME> || '-')!,
-    V => q!(%env<HTTP_HOST> || %env<SERVER_NAME> || '-')!,
-);
-
-has %.block-handlers;
 
 # [10/Oct/2000:13:55:36 -0700]
 my sub format-datetime(DateTime $dt) {
@@ -68,75 +177,30 @@ our sub get-header(@hdrs, $key) {
     return;
 }
 
-method run-block-handler($block, $type, %extra-blocks) {
-    state %psgi-reserved = (
-        CONTENT_LENGTH => 1,
-        CONTENT_TYPE => 1,
-    );
-    my $cb;
-    given $type {
-        when 'i' {
-            $cb = $block;
-            $cb ~~ s:g/\-/_/;
-            my $hdr-name = $cb.uc;
-            if !%psgi-reserved{$hdr-name} {
-                $hdr-name = "HTTP_" ~ $hdr-name;
-            }
-            $cb = q!string-value(%env<! ~ $hdr-name ~ q!>)!;
-        }
-        when 'o' {
-            $cb = q!string-value(get-header(@res[1], '! ~ $block ~ q!'))!;
-        }
-        when 't' {
-            $cb = q!"[" ~ strftime('! ~ $block ~ q!', $time) ~ "]"!;
-        }
-        when %extra-blocks{$type}:exists {
-            $cb = q!string-value(%extra-blocks{'! ~ $type ~ q!'}('! ~ $block ~ q!', %env, @res, $length, $reqtime))!;
-        }
-        default {
-            die "{$block}$type not supported";
-        }
-    }
-    return q|! ~ | ~ $cb ~ q| ~ q!|;
-}
-
-method run-char-handler(Str $char, %extra) {
-    my $cb;
-
-    if %.char-handlers{$char}:exists {
-        $cb = %.char-handlers{$char};
-    } elsif %extra{$char}:exists {
-        $cb = q!(%extra-chars{'! ~ $char ~ q!'}(%env, @res))!;
-    }
-
-    if !$cb {
-        die "char handler for '$char' undefined";
-    }
-    return q|! ~ | ~ $cb ~ q|
-      ~ q!|;
-}
-
 method compile(Apache::LogFormat::Compiler:D: $pat, %extra-blocks?, %extra-chars?) {
     my $fmt = $pat; # copy so we can safely modify
+    if !$fmt.defined {
+        die "Can't compile undefined pattern";
+    }
+    if $fmt.chars == 0 {
+        die "Can't compile empty pattern";
+    }
 
     $fmt ~~ s:g/'!'/'\''!'/;
-    $fmt ~~ s:g!
-        [
-             \%\{ $<name>=.+? \} $<type>=<[ a..z A..Z ]>|
-             \%<[\<\>]>? $<char>=<[ a..z A..Z \%]>
-        ]
-    !{ $<name> ??
-        self.run-block-handler($<name>, $<type>, %extra-blocks) !!
-        self.run-char-handler($<char>.Str, %extra-chars)
-    }!;
 
+    my $actions = Apache::LogFormat::GrammarActions.new(
+        extra-block-handlers => %extra-blocks,
+        extra-char-handlers => %extra-chars,
+    );
+    my $match = Apache::LogFormat::Grammar.parse($fmt, :$actions);
+    if !$match {
+        die "Invalid format";
+    }
 
-    $fmt = q~sub (%env, @res, $length, $reqtime, DateTime $time = DateTime.now) {
-        q!~ ~ $fmt ~ q~!;
-    }~;
-
-    my $code = EVAL($fmt);
+    my $code = EVAL($match.made.Str);
     return Apache::LogFormat::Formatter.new($code);
+}
+
 }
 
 =begin pod
