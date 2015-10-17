@@ -19,19 +19,37 @@ my %env = (
     SERVER_PROTOCOL => "HTTP/1.0",
 );
 my @res = (200, ["Content-Type" => "text/plain"], ["Hello, World".encode('ascii')]);
-my $t0 = DateTime.now.Instant;
-sleep 1;
 my $now = DateTime.now;
-my $got = $fmt.format(%env, @res, 10, $t0 - $now.Instant, $now);
+
+sub mk_format($tz?) {
+    $fmt.format(%env, @res, 10, Duration.new(1), $tz.defined ?? $now.in-timezone($tz) !! $now);
+}
+
+my $got = mk_format;
 
 if ! ok($got ~~ m!'GET /foo/bar/baz HTTP/1.0'!, "Checking %r") {
     note $got;
     return;
 }
 
-if ! ok($got ~~ m!\[\d**2\/<[A..Z]><[a..z]>**2\/\d**4\:\d**2\:\d**2\:\d**2 " " <[\+\-]>\d**4\]!, "checking %t") {
+sub check_fmt_t($got, :$tz) {
+    my $tag = $tz.defined ?? " - $tz" !! '';
+    ok $got ~~ m!\[\d**2\/<[A..Z]><[a..z]>**2\/\d**4\:\d**2\:\d**2\:\d**2 " " <[\+\-]>\d**4\]!, "checking %t$tag";
+}
+
+# Check with system timezone
+if ! check_fmt_t($got) {
     note $got;
     return;
+}
+
+# Check with various timezones
+for -21600, 32400, 0 -> $tz {
+    my $got2 = mk_format $tz;
+    if ! check_fmt_t($got2, :$tz) {
+        note $got2;
+        return;
+    }
 }
 
 if ! ok($got ~~ /'"Firefox foo blah\\x0a"'/, "line is as expected") {
