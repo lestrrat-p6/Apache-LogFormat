@@ -7,8 +7,8 @@ grammar Apache::LogFormat::Grammar {
 
     token expr {
         [
-            '%' [ <block-section> | <char-name> ]
-        ] | <anyother>
+            '%' [ <block-section> || <char-name> ]
+        ] || <anyother>
     }
 
     token anyother {
