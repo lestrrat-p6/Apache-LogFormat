@@ -38,6 +38,34 @@ Apache::LogFormat - Provide Apache-Style Log Generators
 
 Apache::LogFormat provides Apache-style log generators.
 
+=head1 AVAILABLE SYMBOLS
+
+   %%    a percent sign
+   %h    REMOTE_ADDR from the PSGI environment, or -
+   %l    remote logname not implemented (currently always -)
+   %u    REMOTE_USER from the PSGI environment, or -
+   %t    [local timestamp, in default format]
+   %r    REQUEST_METHOD, REQUEST_URI and SERVER_PROTOCOL from the PSGI environment
+   %s    the HTTP status code of the response
+   %b    content length of the response
+   %T    custom field for handling times in subclasses
+   %D    custom field for handling sub-second times in subclasses
+   %v    SERVER_NAME from the PSGI environment, or -
+   %V    HTTP_HOST or SERVER_NAME from the PSGI environment, or -
+   %p    SERVER_PORT from the PSGI environment
+   %P    the worker's process id
+   %m    REQUEST_METHOD from the PSGI environment
+   %U    PATH_INFO from the PSGI environment
+   %q    QUERY_STRING from the PSGI environment
+   %H    SERVER_PROTOCOL from the PSGI environment
+
+In addition, custom values can be referenced, using C<%{name}>,
+with one of the mandatory modifier flags C<i>, C<o> or C<t>:
+
+   %{variable-name}i    HTTP_{VARIABLE_NAME} value from the PSGI environment
+   %{header-name}o      header-name header in the response
+   %{time-format]t      localtime in the specified strftime format
+
 =head1 PRE DEFINED FORMATTERS
 
 =head2 common(): $fmt:Apache::LogFormat::Formatter
