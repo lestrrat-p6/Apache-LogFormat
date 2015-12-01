@@ -141,9 +141,9 @@ use DateTime::Format;
 my sub format-datetime(DateTime $dt) {
     state @abbr = <Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec>;
 
-    return sprintf("%02d/%s/%04d:%02d:%02d:%02d %s%02d%02d",
+    return sprintf("%02d/%s/%04d:%02d:%02d:%02d %+03d%02d",
         $dt.day-of-month, @abbr[$dt.month-1], $dt.year,
-        $dt.hour, $dt.minute, $dt.second, ($dt.offset>0??'+'!!'-'), $dt.offset/3600, $dt.offset%3600);
+        $dt.hour, $dt.minute, $dt.second, $dt.offset/3600, $dt.offset%3600);
 }
 
 our sub safe-value($s) {
