@@ -17,7 +17,7 @@ my %def_env = (
 );
 my @def_res = (200, ["Content-Type" => "text/plain"], ["Hello, World".encode('ascii')]);
 
-sub test_format($fmt, :%env is copy, :@res = @def_res, :$now = DateTime.now, :$tz) is export {
+sub test-format($fmt, :%env is copy, :@res = @def_res, :$now = DateTime.now, :$tz) is export {
     if %env {
         %env{ .key } //= .value for %def_env.pairs;
     }

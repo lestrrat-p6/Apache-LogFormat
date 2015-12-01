@@ -37,7 +37,7 @@ my @res = (
     ["X-Res-Test" => "bar"],
     ["OK"],
 );
-my $got = test_format $fmt, :%env, :@res;
+my $got = test-format $fmt, :%env, :@res;
 
 like $got, rx!'foo HTTP_X_FORWARDED_FOR|REMOTE_ADDR'!, "line is as expected"
     or return;

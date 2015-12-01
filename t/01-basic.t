@@ -13,7 +13,7 @@ ok $fmt, "f is valid"
 isa-ok $fmt, "Apache::LogFormat::Formatter"
     or return;
 
-my $got = test_format $fmt;
+my $got = test-format $fmt;
 
 like $got, rx!'GET /foo/bar/baz HTTP/1.0'!, "checking %r"
     or return;
@@ -24,7 +24,7 @@ for Nil, -21600, 32400, 0 -> $tz {
     my $got2 = $got;
     if $tz.defined {
         $tag = " (tz: $tz)";
-        $got2 = test_format $fmt, :$tz;
+        $got2 = test-format $fmt, :$tz;
     }
     like $got2, rx/<timefmt>/, "checking %t$tag"
         or return;

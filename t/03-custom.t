@@ -22,7 +22,7 @@ my %env = (
     CONTENT_TYPE => "application/x-www-form-urlencoded",
     CONTENT_LENGTH => 7,
 );
-my $got = test_format $fmt, :%env, :@res;
+my $got = test-format $fmt, :%env, :@res;
 
 like $got, rx!'7 application/x-www-form-urlencoded text/plain 2'!, "line is as expected"
     or return;
